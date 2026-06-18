@@ -1,0 +1,19 @@
+name = "multidnsherenew"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+# 每 6 个月 1 号 0 点执行（UTC 时间）
+[triggers]
+crons = [ "0 0 1 */6 *" ]
+
+# ==================== 环境变量配置说明 ====================
+# 在 Cloudflare Workers 设置 → 变量 中添加以下加密变量：
+#
+# 【必填】多账户配置（JSON 数组）
+# ACCOUNTS = '[{"key":"your_api_key_1","secret":"your_api_secret_1","name":"账户一"},{"key":"your_api_key_2","secret":"your_api_secret_2","name":"账户二"}]'
+#
+# 【可选】邮件通知（支持 Resend / SendGrid / Mailgun）
+# EMAIL_TO = "your@email.com"
+# EMAIL_SERVICE = "resend"
+# EMAIL_API_KEY = "re_xxxxxx"
+# EMAIL_FROM = "DNSHE Renewal <noreply@yourdomain.com>"
