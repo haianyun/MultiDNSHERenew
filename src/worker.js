@@ -6,26 +6,74 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ==================== 多账户解析 ====================
 function getAccounts(env) {
-  if (env.ACCOUNTS) {
+  const raw = (env.ACCOUNTS || "").trim();
+
+  if (raw) {
     try {
-      const accounts = JSON.parse(env.ACCOUNTS);
+      const accounts = JSON.parse(raw);
       if (!Array.isArray(accounts)) {
-        console.log("⚠️ ACCOUNTS 格式错误，应为 JSON 数组");
+        console.log("⚠️ ACCOUNTS 格式错误，应为 JSON 数组，实际类型: " + typeof accounts);
+        console.log("⚠️ ACCOUNTS 原始值(前200字符): " + raw.slice(0, 200));
         return [];
       }
       const valid = accounts.filter(a => a.key && a.secret);
-      if (valid.length === 0) console.log("⚠️ ACCOUNTS 中无有效账户");
+      if (valid.length === 0) {
+        console.log("⚠️ ACCOUNTS 解析成功但无有效账户 (缺少 key 或 secret 字段)");
+        console.log("⚠️ 账户数: " + accounts.length + ", 原始值(前200): " + raw.slice(0, 200));
+      }
       return valid;
     } catch (e) {
       console.log("⚠️ ACCOUNTS JSON 解析失败: " + e.message);
+      console.log("⚠️ 原始值(前200字符): " + raw.slice(0, 200));
       return [];
     }
   }
+
   // 向后兼容旧版
   if (env.API_KEY && env.API_SECRET) {
     return [{ key: env.API_KEY, secret: env.API_SECRET, name: "默认账户" }];
   }
   return [];
+}
+
+/**
+ * 诊断环境变量状态（不暴露密钥内容）
+ */
+function diagnoseEnv(env) {
+  const info = [];
+  const raw = (env.ACCOUNTS || "").trim();
+  
+  info.push(`ACCOUNTS 是否存在: ${raw ? "YES (长度 " + raw.length + ")" : "NO"}`);
+  info.push(`API_KEY 是否存在: ${env.API_KEY ? "YES" : "NO"}`);
+  info.push(`API_SECRET 是否存在: ${env.API_SECRET ? "YES" : "NO"}`);
+  info.push(`EMAIL_TO 是否存在: ${env.EMAIL_TO ? "YES" : "NO"}`);
+  info.push(`EMAIL_API_KEY 是否存在: ${env.EMAIL_API_KEY ? "YES" : "NO"}`);
+
+  if (raw) {
+    info.push(`ACCOUNTS 前50字符: ${raw.slice(0, 50)}`);
+    // 检测常见问题
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      info.push("⚠️ 检测到 ACCOUNTS 被额外双引号包裹，Cloudflare 可能会自动转义");
+    }
+    if (!raw.startsWith("[")) {
+      info.push("⚠️ ACCOUNTS 不以 '[' 开头，可能不是 JSON 数组");
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        info.push(`JSON 解析成功: ${parsed.length} 个账户对象`);
+        parsed.forEach((a, i) => {
+          info.push(`  账户${i + 1}: key=${(a.key || "").slice(0, 12)}..., secret=${a.secret ? "已设置" : "缺失"}, name=${a.name || "无"}`);
+        });
+      } else {
+        info.push(`JSON 解析成功但类型为: ${typeof parsed}`);
+      }
+    } catch (e) {
+      info.push(`JSON 解析失败: ${e.message}`);
+    }
+  }
+
+  return info.join("\n");
 }
 
 // ==================== 邮件通知 ====================
@@ -431,6 +479,16 @@ export default {
       );
     }
 
+    // 诊断端点
+    if (url.pathname === "/debug") {
+      const info = diagnoseEnv(env);
+      const accounts = getAccounts(env);
+      const summary = `\n\n>>> 解析结果: ${accounts.length} 个有效账户`;
+      return new Response(info + summary, {
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+      });
+    }
+
     // 主页
     const accounts = getAccounts(env);
     const hasEmail = !!(env.EMAIL_TO && env.EMAIL_API_KEY);
@@ -523,8 +581,9 @@ h1{text-align:center;font-size:24px;color:#1e293b;margin-bottom:8px}
   </div>
   ` : `
   <div class="empty-state">
-    请在 Cloudflare Workers 设置中配置环境变量：<br><br>
-    <code>ACCOUNTS</code> = <code>[{"key":"KEY","secret":"SECRET","name":"名称"}]</code><br><br>
+    请在 Cloudflare Workers <b>设置 → 变量</b> 中添加加密变量：<br><br>
+    <code>ACCOUNTS</code> = <code>[{"key":"你的API_KEY","secret":"你的API_SECRET","name":"账户名"}]</code><br><br>
+    然后 <b>重新部署</b> Worker，再访问 <b><code>/debug</code></b> 端点诊断配置<br><br>
     可选 <code>EMAIL_TO</code> + <code>EMAIL_API_KEY</code> 开启邮件通知
   </div>
   `}
