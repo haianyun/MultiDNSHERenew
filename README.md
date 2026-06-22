@@ -1,13 +1,16 @@
-# DNSHE 免费域名自动续期工具（多账户版 + 邮件通知）
-[![License](https://img.shields.io/github/license/Townwang/renew?style=flat-square)](https://github.com/Townwang/renew/blob/main/LICENSE)
+# DNSHE 免费域名自动续期工具（多账户版 + 邮件通知 + 密码保护）
+
+[![License](https://img.shields.io/github/license/haianyun/MultiDNSHERenew?style=flat-square)](LICENSE)
 [![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy%20To-Cloudflare%20Workers-orange?style=flat-square)](https://workers.cloudflare.com)
 
-基于原项目 [Townwang/DnsheAutoRenew](https://github.com/Townwang/DnsheAutoRenew) 改进，支持**多账户管理 + 定时自动续期 + 邮件报告通知**。
+基于 [Townwang/DnsheAutoRenew](https://github.com/Townwang/DnsheAutoRenew) 改进，支持**多账户管理 + 定时自动续期 + 邮件报告通知 + 密码保护**。
 
 ## ✨ 功能特性
 - ✅ **多账户支持** — 通过 `ACCOUNTS` JSON 数组管理多个 DNSHE 账户
+- ✅ **密码保护** — 可选 `PASSWORD` 环境变量，保护 Web 页面和 API
 - ✅ **邮件报告通知** — 每次续期后自动发送邮件报告（支持 Resend / SendGrid / Mailgun）
 - ✅ **按账户续期** — Web 界面可选中单个账户或一键续期全部
+- ✅ **诊断端点** — `/debug` 端点查看环境变量配置状态
 - ✅ **向后兼容** — 仍支持旧版 `API_KEY + API_SECRET` 单账户模式
 - ✅ **定时自动执行** — Cron 触发器，无需人工值守
 
@@ -17,8 +20,9 @@
 1. [快速部署](#1-快速部署)
 2. [环境变量配置](#2-环境变量配置)
 3. [邮件通知配置](#3-邮件通知配置)
-4. [使用说明](#4-使用说明)
-5. [常见问题 FAQ](#5-常见问题-faq)
+4. [密码保护](#4-密码保护)
+5. [使用说明](#5-使用说明)
+6. [常见问题 FAQ](#6-常见问题-faq)
 
 ---
 
@@ -38,7 +42,7 @@
 ### 1.3 配置环境变量
 进入 Worker **设置 → 变量**，添加以下变量（勾选加密）：
 
-### 1.4 配置定时触发（可选）
+### 1.4 配置定时触发
 **设置 → 触发器 → 添加 Cron 触发器**，输入 `0 0 1 */6 *`（每 6 个月执行一次）
 
 ---
@@ -68,6 +72,18 @@
 |--------|------|
 | `API_KEY` | DNSHE API Key（仅当未配置 ACCOUNTS 时生效） |
 | `API_SECRET` | DNSHE API Secret（仅当未配置 ACCOUNTS 时生效） |
+
+### 环境变量速查表
+
+| 变量名 | 必填 | 说明 |
+|--------|------|------|
+| `ACCOUNTS` | 是 | 多账户 JSON 数组 |
+| `PASSWORD` | 否 | Web 页面访问密码（不设则公开访问） |
+| `EMAIL_TO` | 否 | 接收报告的邮箱 |
+| `EMAIL_API_KEY` | 否 | 邮件服务 API Key |
+| `EMAIL_SERVICE` | 否 | 邮件服务: `resend`(默认) / `sendgrid` / `mailgun` |
+| `EMAIL_FROM` | 否 | 自定义发件人地址 |
+| `MAILGUN_DOMAIN` | 否 | Mailgun 域名（仅 Mailgun 需要） |
 
 ---
 
@@ -107,28 +123,39 @@
 | `EMAIL_SERVICE` | `mailgun` |
 | `MAILGUN_DOMAIN` | 你的 Mailgun 域名 |
 
-### 可选：EMAIL_FROM
+---
 
-自定义发件人地址（不设则使用默认值）：
-```
-EMAIL_FROM = "DNSHE Renewal <noreply@yourdomain.com>"
-```
+## 4. 密码保护
+
+在 Workers **设置 → 变量** 中添加：
+
+| 变量名 | 值 |
+|--------|-----|
+| `PASSWORD` | `你的密码` |
+
+- **不设置**：页面和 API 公开访问
+- **设置后**：访问任何页面都需要先登录
+- 登录后 24 小时免密（基于 Cookie + SHA-256 签名认证）
+- 定时任务不受密码影响
 
 ---
 
-## 4. 使用说明
+## 5. 使用说明
 
-### 4.1 Web 手动续期
-1. 浏览器打开 Worker 分配域名（如 `dnshe-renew.xxx.workers.dev`）
-2. 页面顶部显示账户列表和邮件配置状态
-3. **点击账户标签** → 仅续期该账户；**不选** → 续期全部
-4. 点击**开始续期**，实时查看日志
-5. 若已配置邮件，完成后自动发送邮件报告
+### 5.1 诊断配置
+部署后访问 `https://你的Worker域名/debug` 查看所有环境变量状态和 JSON 解析结果。
 
-### 4.2 定时自动续期
-Cron 触发器按时自动执行，每次完成后自动发送邮件报告至 `EMAIL_TO`。
+### 5.2 Web 手动续期
+1. 浏览器打开 Worker 域名
+2. （如已设置密码）输入密码登录
+3. 页面顶部显示账户列表和配置状态
+4. **点击账户标签** → 仅续期该账户；**不选** → 续期全部
+5. 点击**开始续期**，实时查看日志
 
-### 4.3 邮件报告示例
+### 5.3 定时自动续期
+Cron 触发器按时自动执行，每次完成后自动发送邮件报告。
+
+### 5.4 邮件报告示例
 
 ```
 DNSHE 域名自动续期报告
@@ -156,7 +183,7 @@ DNSHE 域名自动续期报告
 
 ---
 
-## 5. 常见问题 FAQ
+## 6. 常见问题 FAQ
 
 ### Q1：如何获取 DNSHE API Key？
 登录 [DNSHE](https://www.dnshe.com) → 头像 → API 密钥管理 → 生成密钥。
@@ -171,7 +198,10 @@ DNSHE 域名自动续期报告
 免费额度 100 封/天，本工具每 6 个月发一封，绰绰有余。
 
 ### Q5：安全吗？
-API 密钥和邮件 API Key 通过 Cloudflare 加密环境变量存储，代码中无任何硬编码。
+API 密钥和密码通过 Cloudflare 加密环境变量存储，代码中无任何硬编码。密码认证使用 SHA-256 签名 + 24 小时过期机制。
+
+### Q6：页面显示"账户: 0"怎么办？
+访问 `/debug` 端点查看诊断信息，确认 `ACCOUNTS` JSON 格式正确，然后重新部署 Worker。
 
 ---
 

@@ -12,6 +12,9 @@ crons = [ "0 0 1 */6 *" ]
 # 【必填】多账户配置（JSON 数组）
 # ACCOUNTS = '[{"key":"your_api_key_1","secret":"your_api_secret_1","name":"账户一"},{"key":"your_api_key_2","secret":"your_api_secret_2","name":"账户二"}]'
 #
+# 【可选】访问密码保护
+# PASSWORD = "your_password"
+#
 # 【可选】邮件通知（支持 Resend / SendGrid / Mailgun）
 # EMAIL_TO = "your@email.com"
 # EMAIL_SERVICE = "resend"
